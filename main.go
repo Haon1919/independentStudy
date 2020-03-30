@@ -1,5 +1,10 @@
 package main
 
+//TODO: When deleting a user make sure any event they are registered for is deleted
+//TODO: When deleting an event throw an error stating that users are registered for the event if the start and end time have not elapsed;
+//TODO: Add start times to the event table
+//TODO: Dissallow users to be schedualed for an event if the start time or end time of the event to be schedualed overlap with another event they have scheduled
+
 import (
 	"database/sql"
 	"encoding/json"
@@ -74,10 +79,17 @@ func createEvent(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	_, err = stmt.Exec(newEvent.Title, newEvent.Description)
+	res, err := stmt.Exec(newEvent.Title, newEvent.Description)
 	if err != nil {
 		panic(err.Error())
 	}
+
+	eventID, err := res.LastInsertId()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	newEvent.ID = eventID
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newEvent)
@@ -124,7 +136,7 @@ func getOneEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := db.QueryRow("SELECT * FROM event WHERE ID = ?")
+	result := db.QueryRow("SELECT * FROM event WHERE ID = ?", eventID)
 	err = result.Scan(&e.ID, &e.Description, &e.Title)
 	if err != nil {
 		panic(err.Error())
@@ -272,7 +284,9 @@ func updateEvent(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
-	_, err = stmt.Exec(updateEvent.Description, updateEvent.Title, updateEvent.ID)
+	updateEvent.ID = int64(eventID)
+
+	_, err = stmt.Exec(updateEvent.Description, updateEvent.Title, eventID)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -313,17 +327,19 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		updateUser.LastName = originalUser.LastName
 	}
 
-	stmt, err := db.Prepare("UPDATE event SET first_name = ?, last_name = ? WHERE ID = ?")
+	stmt, err := db.Prepare("UPDATE user SET first_name = ?, last_name = ? WHERE ID = ?")
 	if err != nil {
 		panic(err.Error())
 	}
 
-	_, err = stmt.Exec(updateUser.FirstName, updateUser.LastName, updateUser.ID)
+	_, err = stmt.Exec(updateUser.FirstName, updateUser.LastName, userID)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	fmt.Fprintf(w, "User with successfully registered for event")
+	updateUser.ID = int64(userID)
+
+	json.NewEncoder(w).Encode(updateUser)
 }
 
 func addUserToEvent(w http.ResponseWriter, r *http.Request) {

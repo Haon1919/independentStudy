@@ -323,10 +323,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		panic(err.Error())
 	}
 
+	fmt.Fprintf(w, "User with successfully registered for event")
 }
 
 func addUserToEvent(w http.ResponseWriter, r *http.Request) {
-	//TODO:: Finish implementing method
 	userID, userErr := strconv.Atoi(mux.Vars(r)["userId"])
 	if userErr != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -341,6 +341,15 @@ func addUserToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	stmt, err := db.Prepare("INSERT INTO event_subscriptions VALUES(?,?)")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	_, err = stmt.Exec(userID, eventID)
+	if err != nil {
+		panic(err.Error())
+	}
 }
 
 func deleteEvent(w http.ResponseWriter, r *http.Request) {
